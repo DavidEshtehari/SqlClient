@@ -80,10 +80,11 @@ namespace Microsoft.Data.SqlClient
 
         static AppDomain GetDefaultAppDomainInternal()
         {
-            var host = new mscoree.CorRuntimeHost();
-            host.GetDefaultDomain(out object temp);
-            AppDomain defaultAppDomain = temp as AppDomain;
-            return defaultAppDomain;
+            //var host = new mscoree.CorRuntimeHost();
+            //host.GetDefaultDomain(out object temp);
+            //AppDomain defaultAppDomain = temp as AppDomain;
+            //return defaultAppDomain;
+            return AppDomain.CurrentDomain;
         }
 
         internal static _AppDomain GetDefaultAppDomain()

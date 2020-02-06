@@ -360,3 +360,4 @@ MigrationBackup/
 
 # Config Json file
 src/Microsoft.Data.SqlClient/tests/ManualTests/config.json
+/src/Microsoft.Data.SqlClient/tests/FunctionalTests/SqlDependencyTest.cs
