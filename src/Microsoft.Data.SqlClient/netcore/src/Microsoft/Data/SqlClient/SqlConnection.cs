@@ -45,7 +45,7 @@ namespace Microsoft.Data.SqlClient
         private string _accessToken; // Access Token to be used for token based authententication
 
         // connection resiliency
-        private object _reconnectLock = new object();
+        private object _reconnectLock;
         internal Task _currentReconnectionTask;
         private Task _asyncWaitingForReconnection; // current async task waiting for reconnection in non-MARS connections
         private Guid _originalConnectionId = Guid.Empty;
@@ -89,6 +89,8 @@ namespace Microsoft.Data.SqlClient
             = new ConcurrentDictionary<string, IList<string>>(concurrencyLevel: 4 * Environment.ProcessorCount /* default value in ConcurrentDictionary*/,
                 capacity: 1,
                 comparer: StringComparer.OrdinalIgnoreCase);
+
+        private static readonly Action<object> s_openAsyncCancel = OpenAsyncCancel;
 
         /// <include file='..\..\..\..\..\..\..\doc\snippets\Microsoft.Data.SqlClient\SqlConnection.xml' path='docs/members[@name="SqlConnection"]/ColumnEncryptionKeyCacheTtl/*' />
         public static TimeSpan ColumnEncryptionKeyCacheTtl { get; set; } = TimeSpan.FromHours(2);
@@ -1116,6 +1118,12 @@ namespace Microsoft.Data.SqlClient
                             if (cData._unrecoverableStatesCount == 0)
                             {
                                 bool callDisconnect = false;
+
+                                if (_reconnectLock is null)
+                                {
+                                    Interlocked.CompareExchange(ref _reconnectLock, new object(), null);
+                                }
+
                                 lock (_reconnectLock)
                                 {
                                     tdsConn.CheckEnlistedTransactionBinding();
@@ -1275,7 +1283,7 @@ namespace Microsoft.Data.SqlClient
                     CancellationTokenRegistration registration = new CancellationTokenRegistration();
                     if (cancellationToken.CanBeCanceled)
                     {
-                        registration = cancellationToken.Register(s => ((TaskCompletionSource<DbConnectionInternal>)s).TrySetCanceled(), completion);
+                        registration = cancellationToken.Register(s_openAsyncCancel, completion);
                     }
                     OpenAsyncRetry retry = new OpenAsyncRetry(this, completion, result, registration);
                     _currentCompletion = new Tuple<TaskCompletionSource<DbConnectionInternal>, Task>(completion, result.Task);
@@ -1294,6 +1302,11 @@ namespace Microsoft.Data.SqlClient
             {
                 SqlStatistics.StopTimer(statistics);
             }
+        }
+
+        private static void OpenAsyncCancel(object state)
+        {
+            ((TaskCompletionSource<DbConnectionInternal>)state).TrySetCanceled();
         }
 
         /// <include file='..\..\..\..\..\..\..\doc\snippets\Microsoft.Data.SqlClient\SqlConnection.xml' path='docs/members[@name="SqlConnection"]/GetSchema2/*' />
