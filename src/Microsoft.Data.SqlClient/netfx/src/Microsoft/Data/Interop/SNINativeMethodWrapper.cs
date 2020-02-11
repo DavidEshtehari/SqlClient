@@ -16,6 +16,26 @@ using Microsoft.Data.SqlClient;
 
 namespace Microsoft.Data.SqlClient
 {
+    [SuppressUnmanagedCodeSecurity]
+    internal static class ListenerUnsafeNativeMethods
+    {
+        [ComImport, Guid("CB2F6722-AB3A-11D2-9C40-00C04FA30A3E"), ComConversionLoss, InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        internal interface ICorRuntimeHost
+        {
+            void Void0();
+            void Void1();
+            void Void2();
+            void Void3();
+            void Void4();
+            void Void5();
+            void Void6();
+            void Void7();
+            void Void8();
+            void Void9();
+            void GetDefaultDomain([MarshalAs(UnmanagedType.IUnknown)] out object pAppDomain);
+        }
+    }
+
     internal static class SNINativeMethodWrapper
     {
         private const string SNI = "SNI.dll";
@@ -80,11 +100,36 @@ namespace Microsoft.Data.SqlClient
 
         static AppDomain GetDefaultAppDomainInternal()
         {
+            AppDomain defaultDomain;
+
+            if (AppDomain.CurrentDomain.IsDefaultAppDomain())
+            {
+                defaultDomain = AppDomain.CurrentDomain;
+            }
+            else
+            {
+                Guid rclsid = new Guid("CB2F6723-AB3A-11D2-9C40-00C04FA30A3E");
+                Guid riid = new Guid("CB2F6722-AB3A-11D2-9C40-00C04FA30A3E");
+                ListenerUnsafeNativeMethods.ICorRuntimeHost corRuntimeHost;
+
+                corRuntimeHost = (ListenerUnsafeNativeMethods.ICorRuntimeHost)System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeInterfaceAsObject(rclsid, riid);
+
+                object defaultDomainAsObject;
+                corRuntimeHost.GetDefaultDomain(out defaultDomainAsObject);
+                defaultDomain = (AppDomain)defaultDomainAsObject;
+
+                if (!defaultDomain.IsDefaultAppDomain())
+                {
+                    // TODO: Add log!
+                    //throw Fx.AssertAndThrowFatal("AllowHelper..ctor() GetDefaultDomain did not return the default domain!");
+                }
+            }
+            return defaultDomain;
+
             //var host = new mscoree.CorRuntimeHost();
             //host.GetDefaultDomain(out object temp);
             //AppDomain defaultAppDomain = temp as AppDomain;
             //return defaultAppDomain;
-            return AppDomain.CurrentDomain;
         }
 
         internal static _AppDomain GetDefaultAppDomain()
